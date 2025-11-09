@@ -1,0 +1,44 @@
+version: '3.8'  # 适配主流Docker版本，支持所有配置项
+
+services:
+  postgres:
+    image: postgres:16  # 指定PostgreSQL镜像及版本
+    container_name: postgres  # 容器名称，与原命令一致
+    networks:
+      - pg-network  # 加入指定网络，需确保网络已提前创建
+    ports:
+      - "5432:5432"  # 端口映射，主机端口:容器端口
+    environment:
+      - POSTGRES_PASSWORD=123456  # 数据库密码
+      - POSTGRES_USER=user1  # 数据库用户名
+      - POSTGRES_DB=test  # 初始化的数据库名
+      - TZ=Asia/Shanghai  # 容器时区
+      - POSTGRES_INITDB_ARGS=--data-checksums  # 初始化数据库时启用数据校验和
+    volumes:
+      - pgdata:/var/lib/postgresql/data  # 命名卷，持久化数据库数据
+      # - /etc/localtime:/etc/localtime:ro  # 挂载主机时区文件，确保时间同步（只读）
+    restart: unless-stopped  # 重启策略，除非手动停止否则自动重启
+    deploy:
+      resources:
+        limits:
+          cpus: '2'  # CPU核心限制，与原命令--cpus=2一致
+          memory: 4g  # 内存限制，与原命令--memory=4g一致
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user1"]  # 健康检查命令，验证数据库是否就绪
+      interval: 30s  # 健康检查间隔时间
+      timeout: 5s  # 检查命令超时时间
+      retries: 3  # 连续失败3次判定为不健康
+    command:  # 容器启动后执行的命令，对应原命令末尾的PostgreSQL配置参数
+      - "-c"
+      - "max_connections=200"  # 最大连接数
+      - "-c"
+      - "shared_buffers=1GB"  # 共享缓冲区大小
+
+# 定义命名卷，与原命令的-v pgdata:/...对应
+volumes:
+  pgdata:
+
+# 定义网络，需提前通过`docker network create pg-network`创建
+networks:
+  pg-network:
+    external: true  # 声明为外部网络，避免compose自动创建新网络
